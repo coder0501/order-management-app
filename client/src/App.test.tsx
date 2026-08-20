@@ -19,6 +19,7 @@ describe('order experience', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Add Truffle Mushroom to cart' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Truffle Mushroom added to your order')
     await user.click(screen.getByRole('button', { name: 'Open cart' }))
     expect(screen.getByRole('heading', { name: /Your order/ })).toBeInTheDocument()
     expect(screen.getAllByText('$18.00').length).toBeGreaterThan(0)
