@@ -10,6 +10,7 @@ export function createApp(service: OrderService, scheduler: OrderStatusScheduler
   const app = express()
   app.use(cors())
   app.use(express.json())
+  app.get('/', (_request, response) => response.json({ name: 'Crave Order API', status: 'ok' }))
   app.get('/health', (_request, response) => response.json({ ok: true }))
   app.use('/api/menu', menuRouter)
   app.use('/api/orders', createOrderRouter(service, scheduler))
