@@ -37,4 +37,20 @@ describe('order experience', () => {
     await user.click(screen.getByRole('button', { name: 'Place order' }))
     expect(screen.getByLabelText('Name')).toBeInvalid()
   })
+
+  it('rejects a phone number that is too short', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Add Truffle Mushroom to cart' }))
+    await user.click(screen.getByRole('button', { name: 'Open cart' }))
+    await user.click(screen.getByRole('button', { name: 'Checkout' }))
+    await user.type(screen.getByLabelText('Name'), 'Alex Morgan')
+    await user.type(screen.getByLabelText('Address'), '12 Willow Street')
+    await user.type(screen.getByLabelText('Phone number'), '1')
+    await user.click(screen.getByRole('button', { name: 'Place order' }))
+
+    expect(screen.getByText('Enter a valid phone number with at least 8 characters.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Delivery details' })).toBeInTheDocument()
+  })
 })

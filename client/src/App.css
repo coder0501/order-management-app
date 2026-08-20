@@ -520,6 +520,14 @@ footer .brand {
   width: 100%;
   margin-top: 19px;
 }
+.button-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid #ffffff70;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
 .checkout-overlay {
   justify-content: center;
   align-items: center;
@@ -548,6 +556,24 @@ footer .brand {
 }
 .checkout-modal input:focus {
   border-color: var(--tomato);
+}
+.checkout-modal input[aria-invalid="true"] {
+  border-color: var(--tomato);
+}
+.field-error {
+  color: #a33b29;
+  font-size: 11px;
+}
+.checkout-modal input:disabled,
+.checkout-modal button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.checkout-note {
+  margin: 16px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 .checkout-total {
   margin-top: 25px;
@@ -685,6 +711,9 @@ footer .brand {
     transform: none;
     opacity: 1;
   }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 @media (max-width: 760px) {
   .app-shell {

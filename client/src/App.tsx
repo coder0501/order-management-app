@@ -12,6 +12,39 @@ import './App.css'
 
 const statusSteps = ['Order received', 'Preparing', 'Out for delivery']
 const statuses = ['received', 'preparing', 'out_for_delivery'] as const
+type FieldErrors = Partial<Record<keyof CustomerDetails, string>>
+
+function validateCustomerDetails(details: CustomerDetails): FieldErrors {
+  const errors: FieldErrors = {}
+  if (details.name.trim().length < 2) errors.name = 'Please enter your full name.'
+  if (details.address.trim().length < 5) errors.address = 'Please enter a complete delivery address.'
+  if (!/^[0-9 +()-]{8,}$/.test(details.phone.trim())) errors.phone = 'Enter a valid phone number with at least 8 characters.'
+  return errors
+}
+
+async function createOrderRequest(payload: { customer: CustomerDetails; items: { menuItemId: number; quantity: number }[] }) {
+  const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(`${apiUrl}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const result = await response.json().catch(() => null) as { data?: { id: string }; error?: string } | null
+      if (!response.ok) {
+        const error = new Error(result?.error ?? 'The kitchen could not accept this order.')
+        if (![502, 503, 504].includes(response.status)) throw error
+        throw Object.assign(error, { retryable: true })
+      }
+      if (!result?.data?.id) throw new Error('The kitchen returned an invalid order response.')
+      return result.data
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('The order request failed.')
+      if (attempt === 0 && error instanceof Error && 'retryable' in error) await new Promise((resolve) => window.setTimeout(resolve, 1500))
+    }
+  }
+
+  throw lastError ?? new Error('The order request failed.')
+}
 
 function App() {
   const [category, setCategory] = useState<Category>('All')
@@ -22,6 +55,8 @@ function App() {
   const [activeStatus, setActiveStatus] = useState(0)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'info' } | null>(null)
   const [details, setDetails] = useState<CustomerDetails>({ name: '', address: '', phone: '' })
   const filteredMenu = menu.filter((item) => category === 'All' || (category === 'Popular' ? item.popular : item.category === category))
@@ -66,22 +101,30 @@ function App() {
   })
 
   const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setCheckoutError('')
-    let apiOrderAccepted = false
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
-      const response = await fetch(`${apiUrl}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer: details, items: cartItems.map((item) => ({ menuItemId: item.id, quantity: cart[item.id] })) }) })
-      if (!response.ok) throw new Error('The kitchen could not accept this order.')
-      const result = await response.json() as { data: { id: string } }
-      setOrderId(result.data.id)
-      apiOrderAccepted = true
-    } catch {
-      setCheckoutError('The live kitchen is unavailable, so this demo will use local status updates.')
-      setOrderId(null)
-      setToast({ message: 'Order placed in demo mode. Status will update locally.', tone: 'info' })
+    event.preventDefault()
+    if (isSubmitting) return
+    const validationErrors = validateCustomerDetails(details)
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors)
+      setCheckoutError('Please correct the highlighted delivery details.')
+      setToast({ message: 'Please check your delivery details.', tone: 'info' })
+      return
     }
-    if (apiOrderAccepted) setToast({ message: 'Order placed. The kitchen is on it.', tone: 'success' })
-    setIsCheckoutOpen(false); setIsCartOpen(false); setOrderPlaced(true); setActiveStatus(0)
+    setCheckoutError('')
+    setFieldErrors({})
+    setIsSubmitting(true)
+    try {
+      const order = await createOrderRequest({ customer: details, items: cartItems.map((item) => ({ menuItemId: item.id, quantity: cart[item.id] })) })
+      setOrderId(order.id)
+      setIsCheckoutOpen(false); setIsCartOpen(false); setOrderPlaced(true); setActiveStatus(0)
+      setToast({ message: 'Order placed. The kitchen is on it.', tone: 'success' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The order request failed.'
+      setCheckoutError(`${message} Please try again.`)
+      setToast({ message: 'Order was not placed. Please try again.', tone: 'info' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return <main className="app-shell">
@@ -92,7 +135,7 @@ function App() {
     <section className="promise" id="how-it-works"><div><span className="promise-number">01</span><h3>Choose what<br />feels good.</h3></div><div><span className="promise-number">02</span><h3>We make it<br />with care.</h3></div><div><span className="promise-number">03</span><h3>You enjoy the<br />good part.</h3></div></section>
     <footer><span className="brand">crave<span className="brand-dot">.</span></span><span>© 2025 Crave Kitchen</span><span>Fresh food for ordinary days.</span></footer>
     {isCartOpen && <CartDrawer items={cartItems} cart={cart} subtotal={subtotal} deliveryFee={deliveryFee} total={total} onQuantityChange={updateQuantity} onClose={() => setIsCartOpen(false)} onCheckout={() => setIsCheckoutOpen(true)} />}
-    {isCheckoutOpen && <CheckoutModal details={details} total={total} error={checkoutError} onDetailsChange={setDetails} onClose={() => setIsCheckoutOpen(false)} onSubmit={submitOrder} />}
+    {isCheckoutOpen && <CheckoutModal details={details} total={total} error={checkoutError} fieldErrors={fieldErrors} isSubmitting={isSubmitting} onDetailsChange={(nextDetails) => { setDetails(nextDetails); setFieldErrors((current) => ({ ...current, name: undefined, address: undefined, phone: undefined })) }} onClose={() => setIsCheckoutOpen(false)} onSubmit={submitOrder} />}
     {toast && <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} />}
   </main>
 }
