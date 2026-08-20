@@ -143,6 +143,6 @@ Example order body:
 6. Add `VITE_API_URL` with the public URL of the deployed API, for example `https://crave-api.onrender.com`.
 7. Deploy and open the generated Vercel URL.
 
-The Express API should be deployed separately to Render, Railway, Fly.io, or another Node-compatible host. Configure `PORT`, `CLIENT_ORIGIN` with the Vercel URL, and `MONGODB_URI` in that host's environment settings. Use `npm install`, `npm run build`, and `npm start` from the `server` directory.
+The Express API should be deployed separately to Render, Railway, Fly.io, or another Node-compatible host. Configure `PORT`, `CLIENT_ORIGIN` with the Vercel URL, and `MONGODB_URI` in that host's environment settings. For Render, set the root directory to `server`, build command to `npm install --include=dev && npm run build`, and start command to `npm start`. The output directory is empty because this is a Node service. Tests are excluded from the production TypeScript bundle but remain available through `npm test`.
 
 The MongoDB URI previously pasted into `.env.example` contained a real username and password. It has been removed from the repository example, but that password must still be rotated in MongoDB Atlas immediately because it has been exposed in chat and may exist in local or Git history. Never commit real credentials. Use `server/.env` locally and deployment-provider environment variables in production.
